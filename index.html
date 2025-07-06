@@ -66,7 +66,6 @@
         const monthNamesTR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
         // --- GÜNCEL VERİ KAYNAKLARI ---
-        // DÜZELTME: URL güncellendi (output=tsv)
         const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-d0JoBoSxh76LuD9uKCKWq-3GCD-VqXg2eBL7yX2prmIYiKmW013EGNSTi12mf7S8_Wu1ZcceLzW8/pub?gid=1015023740&single=true&output=tsv';
 
         const fixedDebts = [
@@ -83,16 +82,12 @@
         // --- ANA FONKSİYONLAR ---
         async function initializeDashboard() {
             try {
-                // Google Sheet'ten veriyi çek
                 const response = await fetch(googleSheetURL);
                 if (!response.ok) {
                     throw new Error(`Veri çekilemedi. Sunucu durumu: ${response.status}. Lütfen Google Sheet URL'nizi kontrol edin.`);
                 }
                 const tsvText = await response.text();
-                
-                // DÜZELTME: Veri TSV formatında işleniyor
                 allTransactions = parseTSV(tsvText);
-                
                 updateUI(allTransactions);
                 populateFilters(allTransactions);
                 setupEventListeners();
@@ -106,32 +101,34 @@
             }
         }
 
-        // DÜZELTME: Fonksiyon CSV yerine TSV işleyecek şekilde güncellendi
         function parseTSV(text) {
             const rows = text.trim().split(/\r?\n/).slice(1);
-            if (rows.length === 0) return []; // Veri yoksa boş dizi döndür
+            if (rows.length === 0) return [];
             return rows.map(row => {
-                const columns = row.split('\t'); // Değişiklik: Virgül yerine TAB ile ayır
-                // TSV'deki sütun sayısının doğru olduğundan emin olalım
-                if (columns.length < 9) return null; 
-                return { 
-                    date: columns[0] || '', 
-                    time: columns[1] || '', 
-                    description: columns[2] || 'Açıklama yok', 
-                    // Değişiklik: Ondalık virgülü noktaya çevirerek sayıyı doğru oku
-                    amount: parseFloat(String(columns[3] || '0').replace(',', '.')) || 0, 
-                    type: (columns[4] || 'gider').toLowerCase().trim(), 
-                    mainCategory: columns[5] || '', 
-                    subCategory: columns[6] || '', 
-                    microCategory: columns[7] || '', 
-                    risk: columns[8] || '' 
+                const columns = row.split('\t');
+                if (columns.length < 9) return null;
+
+                // DÜZELTME 1: 'Birikim & Yatırım' türünü doğru şekilde 'birikim' olarak işle
+                let typeStr = (columns[4] || 'gider').toLowerCase().trim();
+                if (typeStr.includes('birikim')) {
+                    typeStr = 'birikim';
+                }
+
+                return {
+                    date: columns[0] || '',
+                    time: columns[1] || '',
+                    description: columns[2] || 'Açıklama yok',
+                    amount: parseFloat(String(columns[3] || '0').replace(',', '.')) || 0,
+                    type: typeStr, // İşlenmiş türü kullan
+                    mainCategory: columns[5] || '',
+                    subCategory: columns[6] || '',
+                    microCategory: columns[7] || '',
+                    risk: columns[8] || ''
                 };
-            }).filter(Boolean) // Hatalı satırları (null) filtrele
+            }).filter(Boolean)
               .sort((a, b) => {
-                // Tarih formatını (DD.MM.YYYY) ayrıştırıp Date nesnesine çeviriyoruz
                 const dateA = new Date(a.date.split('.').reverse().join('-') + 'T' + a.time);
                 const dateB = new Date(b.date.split('.').reverse().join('-') + 'T' + b.time);
-                // Geçersiz tarihleri sona atmak için kontrol
                 if (isNaN(dateA.getTime())) return 1;
                 if (isNaN(dateB.getTime())) return -1;
                 return dateB - dateA;
@@ -198,7 +195,10 @@
             const income = transactions.filter(t => t.type === 'gelir').reduce((sum, t) => sum + t.amount, 0);
             const expense = transactions.filter(t => t.type === 'gider').reduce((sum, t) => sum + t.amount, 0);
             const savings = transactions.filter(t => t.type === 'birikim').reduce((sum, t) => sum + t.amount, 0);
-            const balance = income - expense;
+            
+            // DÜZELTME 2: Bakiye, gelirden giderler VE birikimler çıkarılarak hesaplanır.
+            const balance = income - expense - savings;
+            
             elements.totalIncome.textContent = `${income.toFixed(2)} ₺`;
             elements.totalExpense.textContent = `${expense.toFixed(2)} ₺`;
             elements.totalSavings.textContent = `${savings.toFixed(2)} ₺`;
@@ -285,7 +285,7 @@
                     }
                 });
                 
-                const netFlow = data.income - data.expense;
+                const netFlow = data.income - data.expense - data.savings;
                 const incomeBreakdown = Object.entries(data.incomeItems).map(([key, value]) => `<li class="flex justify-between"><span>${key}</span> <span>+${value.toFixed(2)}₺</span></li>`).join('');
                 const expenseBreakdown = Object.entries(data.expenseItems).map(([key, value]) => `<li class="flex justify-between"><span>${key}</span> <span>-${value.toFixed(2)}₺</span></li>`).join('');
                 
@@ -330,7 +330,39 @@
         function populateTransactionTable(transactions) {
             elements.transactionList.innerHTML = '';
             if (transactions.length === 0) { elements.transactionList.innerHTML = `<tr><td colspan="6" class="text-center p-6 font-medium">Seçili filtrelere uygun işlem bulunamadı.</td></tr>`; elements.transactionFooter.innerHTML = ''; return; }
-            transactions.forEach(t => { const categories = [t.mainCategory, t.subCategory, t.microCategory].filter(Boolean).join(' > '); const row = `<tr class="border-b border-gray-200 hover:bg-gray-50"><td class="p-3 text-sm text-gray-600">${t.date}<br>${t.time}</td><td class="p-3 font-medium">${t.description}</td><td class="p-3 font-bold text-right ${t.type === 'gelir' ? 'text-green-600' : 'text-red-600'}">${t.type === 'gelir' ? '+' : '-'}${t.amount.toFixed(2)} ₺</td><td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded-full capitalize ${t.type === 'gelir' ? 'bg-green-100 text-green-800' : (t.type === 'gider' ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800')}">${t.type}</span></td><td class="p-3 text-sm text-gray-600">${categories || '-'}</td><td class="p-3 text-sm text-gray-600">${t.risk || '-'}</td></tr>`; elements.transactionList.insertAdjacentHTML('beforeend', row); });
+            
+            transactions.forEach(t => { 
+                const categories = [t.mainCategory, t.subCategory, t.microCategory].filter(Boolean).join(' > ');
+                
+                // DÜZELTME 3: Tutar için renk ve işareti türe göre daha anlamlı hale getir
+                let amountClass = '';
+                let amountSign = '';
+                let typeClass = '';
+
+                if (t.type === 'gelir') {
+                    amountClass = 'text-green-600';
+                    amountSign = '+';
+                    typeClass = 'bg-green-100 text-green-800';
+                } else if (t.type === 'gider') {
+                    amountClass = 'text-red-600';
+                    amountSign = '-';
+                    typeClass = 'bg-red-100 text-red-800';
+                } else if (t.type === 'birikim') {
+                    amountClass = 'text-indigo-600'; // Birikim için mor renk
+                    amountSign = '-'; // Bakiyeden çıkış olduğu için eksi
+                    typeClass = 'bg-indigo-100 text-indigo-800';
+                }
+
+                const row = `<tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="p-3 text-sm text-gray-600">${t.date}<br>${t.time}</td>
+                    <td class="p-3 font-medium">${t.description}</td>
+                    <td class="p-3 font-bold text-right ${amountClass}">${amountSign}${t.amount.toFixed(2)} ₺</td>
+                    <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded-full capitalize ${typeClass}">${t.type}</span></td>
+                    <td class="p-3 text-sm text-gray-600">${categories || '-'}</td>
+                    <td class="p-3 text-sm text-gray-600">${t.risk || '-'}</td>
+                </tr>`; 
+                elements.transactionList.insertAdjacentHTML('beforeend', row); 
+            });
             updateTableFooter(transactions);
         }
 
@@ -338,7 +370,7 @@
             const income = transactions.filter(t => t.type === 'gelir').reduce((sum, t) => sum + t.amount, 0);
             const expense = transactions.filter(t => t.type === 'gider').reduce((sum, t) => sum + t.amount, 0);
             const savings = transactions.filter(t => t.type === 'birikim').reduce((sum, t) => sum + t.amount, 0);
-            const netFlow = income - expense;
+            const netFlow = income - expense; // Bu satır, operasyonel nakit akışını gösterdiği için değiştirilmedi.
             const footerRow = `<tr class="border-t-2 border-gray-300"><td class="p-3 text-right font-extrabold" colspan="2">FİLTRE TOPLAMLARI:</td><td class="p-3 text-right font-extrabold ${netFlow >= 0 ? 'text-blue-600' : 'text-orange-600'}">${netFlow.toFixed(2)} ₺</td><td class="p-3" colspan="3"><div class="flex justify-around text-sm"><span class="text-green-600">Gelir: ${income.toFixed(2)} ₺</span><span class="text-red-600">Gider: ${expense.toFixed(2)} ₺</span><span class="text-indigo-600">Birikim: ${savings.toFixed(2)} ₺</span></div></td></tr>`;
             elements.transactionFooter.innerHTML = footerRow;
         }
