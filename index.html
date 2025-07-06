@@ -66,7 +66,8 @@
         const monthNamesTR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
         // --- GÜNCEL VERİ KAYNAKLARI ---
-        const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-d0JoBoSxh76LuD9uKCKWq-3GCD-VqXg2eBL7yX2prmIYiKmW013EGNSTi12mf7S8_Wu1ZcceLzW8/pub?gid=1015023740&single=true&output=csv';
+        // DÜZELTME: URL güncellendi (output=tsv)
+        const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-d0JoBoSxh76LuD9uKCKWq-3GCD-VqXg2eBL7yX2prmIYiKmW013EGNSTi12mf7S8_Wu1ZcceLzW8/pub?gid=1015023740&single=true&output=tsv';
 
         const fixedDebts = [
             { name: 'Enpara Kredi 1', payment: 35745.89, endDate: new Date(2025, 9, 31) },
@@ -87,9 +88,10 @@
                 if (!response.ok) {
                     throw new Error(`Veri çekilemedi. Sunucu durumu: ${response.status}. Lütfen Google Sheet URL'nizi kontrol edin.`);
                 }
-                const csvText = await response.text();
+                const tsvText = await response.text();
                 
-                allTransactions = parseCSV(csvText);
+                // DÜZELTME: Veri TSV formatında işleniyor
+                allTransactions = parseTSV(tsvText);
                 
                 updateUI(allTransactions);
                 populateFilters(allTransactions);
@@ -104,18 +106,20 @@
             }
         }
 
-        function parseCSV(text) {
+        // DÜZELTME: Fonksiyon CSV yerine TSV işleyecek şekilde güncellendi
+        function parseTSV(text) {
             const rows = text.trim().split(/\r?\n/).slice(1);
             if (rows.length === 0) return []; // Veri yoksa boş dizi döndür
             return rows.map(row => {
-                const columns = row.split(',');
-                // CSV'deki sütun sayısının doğru olduğundan emin olalım
+                const columns = row.split('\t'); // Değişiklik: Virgül yerine TAB ile ayır
+                // TSV'deki sütun sayısının doğru olduğundan emin olalım
                 if (columns.length < 9) return null; 
                 return { 
                     date: columns[0] || '', 
                     time: columns[1] || '', 
                     description: columns[2] || 'Açıklama yok', 
-                    amount: parseFloat(columns[3]) || 0, 
+                    // Değişiklik: Ondalık virgülü noktaya çevirerek sayıyı doğru oku
+                    amount: parseFloat(String(columns[3] || '0').replace(',', '.')) || 0, 
                     type: (columns[4] || 'gider').toLowerCase().trim(), 
                     mainCategory: columns[5] || '', 
                     subCategory: columns[6] || '', 
@@ -274,8 +278,8 @@
                     const debtStartDate = debt.startDate || new Date(2000, 0, 1);
                     if (monthDate >= debtStartDate && monthDate <= debt.endDate) {
                         let payment = (debt.firstPayment && debt.startDate && debt.startDate.getFullYear() === monthDate.getFullYear() && debt.startDate.getMonth() === monthDate.getMonth()) 
-                                    ? debt.firstPayment 
-                                    : debt.payment;
+                                        ? debt.firstPayment 
+                                        : debt.payment;
                         pendingDebtsTotal += payment;
                         pendingDebtsHtml += `<li class="flex justify-between"><span>${debt.name}</span> <span>-${payment.toFixed(2)}₺</span></li>`;
                     }
