@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gelişmiş Finansal Panel (Dinamik Veri)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js (Grafikler için) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome (İkonlar için) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card { transition: all 0.3s ease; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.08); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .chart-container { position: relative; height: 350px; width: 100%; }
+        select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 0.65rem auto; }
+        .details-toggle .fa-chevron-down, .main-category-toggle .fa-chevron-down, .monthly-details-toggle .fa-chevron-down { transition: transform 0.3s ease; }
+        .details-toggle.open .fa-chevron-down, .main-category-toggle.open .fa-chevron-down, .monthly-details-toggle.open .fa-chevron-down { transform: rotate(180deg); }
+        .details-breakdown, .sub-breakdown, .monthly-details-breakdown { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out; }
+        .details-breakdown.open, .sub-breakdown.open, .monthly-details-breakdown.open { max-height: 1000px; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-screen-2xl">
+        
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900">Finansal Analiz Paneli</h1>
+            <p class="text-gray-600 mt-2">Mevcut durumunuzu analiz edin, geleceğinizi planlayın.</p>
+        </header>
+
+        <!-- Genel Özet Kartları -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <div class="card bg-white p-6 rounded-xl shadow-md flex flex-col"><div class="flex items-start justify-between"><div class="flex items-center space-x-4"><div class="bg-green-100 p-3 rounded-full"><i class="fas fa-arrow-up text-green-500 text-2xl"></i></div><div><h2 class="text-gray-500 text-lg">Toplam Gerçekleşen Gelir</h2><p id="total-income" class="text-2xl font-bold text-green-600">0.00 ₺</p></div></div><button class="details-toggle text-gray-400 hover:text-indigo-600 p-2"><i class="fas fa-chevron-down"></i></button></div><div class="details-breakdown mt-4 pt-4 border-t border-gray-200"><ul id="income-breakdown" class="space-y-2 text-sm text-gray-600"></ul></div></div>
+            <div class="card bg-white p-6 rounded-xl shadow-md flex flex-col"><div class="flex items-start justify-between"><div class="flex items-center space-x-4"><div class="bg-red-100 p-3 rounded-full"><i class="fas fa-arrow-down text-red-500 text-2xl"></i></div><div><h2 class="text-gray-500 text-lg">Toplam Gerçekleşen Gider</h2><p id="total-expense" class="text-2xl font-bold text-red-600">0.00 ₺</p></div></div><button class="details-toggle text-gray-400 hover:text-indigo-600 p-2"><i class="fas fa-chevron-down"></i></button></div><div class="details-breakdown mt-4 pt-4 border-t border-gray-200"><ul id="expense-breakdown" class="space-y-1 text-sm text-gray-600"></ul></div></div>
+            <div class="card bg-white p-6 rounded-xl shadow-md flex flex-col"><div class="flex items-start justify-between"><div class="flex items-center space-x-4"><div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-piggy-bank text-indigo-500 text-2xl"></i></div><div><h2 class="text-gray-500 text-lg">Toplam Birikim</h2><p id="total-savings" class="text-2xl font-bold text-indigo-600">0.00 ₺</p></div></div><button class="details-toggle text-gray-400 hover:text-indigo-600 p-2"><i class="fas fa-chevron-down"></i></button></div><div class="details-breakdown mt-4 pt-4 border-t border-gray-200"><ul id="savings-breakdown" class="space-y-1 text-sm text-gray-600"></ul></div></div>
+            <div class="card bg-white p-6 rounded-xl shadow-md"><div class="flex items-center space-x-4"><div class="bg-blue-100 p-3 rounded-full"><i class="fas fa-wallet text-blue-500 text-2xl"></i></div><div><h2 class="text-gray-500 text-lg">Mevcut Bakiye</h2><p id="balance" class="text-2xl font-bold text-blue-600">0.00 ₺</p></div></div></div>
+        </div>
+
+        <!-- Analiz Grafikleri, Aylık Özetler ve İşlem Geçmişi... -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10"><div class="bg-white p-6 rounded-xl shadow-md"><h3 class="text-xl font-bold mb-4">Harcama Dağılımı (Ana Kategori)</h3><div class="chart-container"><canvas id="expenseChart"></canvas></div></div><div class="bg-white p-6 rounded-xl shadow-md"><h3 class="text-xl font-bold mb-4">Birikim & Yatırım Dağılımı</h3><div class="chart-container"><canvas id="savingsChart"></canvas></div></div></div>
+        <div class="mb-10"><h2 class="text-3xl font-bold text-center mb-6">Aylık Projeksiyonlar</h2><div id="monthly-summaries" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div></div>
+        <div class="text-center mb-6"><button id="toggle-details-btn" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl"><i class="fas fa-list-alt mr-2"></i>Tüm İşlem Geçmişini Göster</button></div>
+        <div id="details-container" class="bg-white p-4 md:p-8 rounded-xl shadow-md hidden"><h2 class="text-2xl font-bold mb-6">İşlem Geçmişi</h2><div id="filters" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg"><div><label for="filter-month" class="block text-sm font-medium text-gray-700">Aya Göre Filtrele</label><select id="filter-month" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select></div><div><label for="filter-type" class="block text-sm font-medium text-gray-700">Türe Göre Filtrele</label><select id="filter-type" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select></div><div><label for="filter-category" class="block text-sm font-medium text-gray-700">Kategoriye Göre Filtrele</label><select id="filter-category" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select></div></div><div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b-2 border-gray-200"><th class="p-3">Tarih</th><th class="p-3">Açıklama</th><th class="p-3 text-right">Tutar</th><th class="p-3">Tür</th><th class="p-3">Kategoriler</th><th class="p-3">Önem/Risk</th></tr></thead><tbody id="transaction-list"></tbody><tfoot id="transaction-footer" class="bg-gray-100 font-bold"></tfoot></table></div></div>
+    </div>
+
+    <script>
+        // --- DOM ELEMENTLERİ ---
+        const elements = {
+            totalIncome: document.getElementById('total-income'), totalExpense: document.getElementById('total-expense'), totalSavings: document.getElementById('total-savings'), balance: document.getElementById('balance'),
+            breakdowns: { income: document.getElementById('income-breakdown'), expense: document.getElementById('expense-breakdown'), savings: document.getElementById('savings-breakdown'), },
+            transactionList: document.getElementById('transaction-list'), transactionFooter: document.getElementById('transaction-footer'), monthlySummaries: document.getElementById('monthly-summaries'),
+            toggleDetailsBtn: document.getElementById('toggle-details-btn'), detailsContainer: document.getElementById('details-container'),
+            filters: { month: document.getElementById('filter-month'), type: document.getElementById('filter-type'), category: document.getElementById('filter-category'), }
+        };
+        const chartContexts = { expense: document.getElementById('expenseChart').getContext('2d'), savings: document.getElementById('savingsChart').getContext('2d'), };
+        let charts = { expense: null, savings: null };
+        let allTransactions = [];
+        const monthNamesTR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+
+        // --- GÜNCEL VERİ KAYNAKLARI ---
+        const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-d0JoBoSxh76LuD9uKCKWq-3GCD-VqXg2eBL7yX2prmIYiKmW013EGNSTi12mf7S8_Wu1ZcceLzW8/pub?gid=1015023740&single=true&output=csv';
+
+        const fixedDebts = [
+            { name: 'Enpara Kredi 1', payment: 35745.89, endDate: new Date(2025, 9, 31) },
+            { name: 'YapıKredi Kredi 1', payment: 7425.77, endDate: new Date(2026, 1, 28) },
+            { name: 'Garanti Bankası', payment: 8454.14, endDate: new Date(2026, 7, 31) },
+            { name: 'Enpara Kredi 2', payment: 6308.76, endDate: new Date(2027, 4, 31) },
+            { name: 'YapıKredi Kredi 2', payment: 8724.26, endDate: new Date(2027, 5, 30) },
+            { name: 'YapıKredi Kredi 3', payment: 7184.27, endDate: new Date(2028, 2, 31) },
+            { name: 'YK Yapılandırma 1', payment: 23554.86, endDate: new Date(2026, 6, 7), firstPayment: 24674.96, startDate: new Date(2025, 7, 1) },
+            { name: 'YK Yapılandırma 2', payment: 21512.09, endDate: new Date(2026, 6, 9), firstPayment: 23216.97, startDate: new Date(2025, 7, 1) }
+        ];
+
+        // --- ANA FONKSİYONLAR ---
+        async function initializeDashboard() {
+            try {
+                // Google Sheet'ten veriyi çek
+                const response = await fetch(googleSheetURL);
+                if (!response.ok) {
+                    throw new Error(`Veri çekilemedi. Sunucu durumu: ${response.status}. Lütfen Google Sheet URL'nizi kontrol edin.`);
+                }
+                const csvText = await response.text();
+                
+                allTransactions = parseCSV(csvText);
+                
+                updateUI(allTransactions);
+                populateFilters(allTransactions);
+                setupEventListeners();
+            } catch (error) {
+                console.error('Hata:', error);
+                document.body.innerHTML = `<div class="text-center p-10 text-red-500">
+                    <h2 class="text-2xl font-bold">Kritik Hata!</h2>
+                    <p class="mt-2">Veriler yüklenemedi. Lütfen internet bağlantınızı ve Google Sheet URL'nizin doğruluğunu kontrol edin.</p>
+                    <p class="mt-4 text-sm bg-red-100 p-4 rounded-md">${error.message}</p>
+                </div>`;
+            }
+        }
+
+        function parseCSV(text) {
+            const rows = text.trim().split(/\r?\n/).slice(1);
+            if (rows.length === 0) return []; // Veri yoksa boş dizi döndür
+            return rows.map(row => {
+                const columns = row.split(',');
+                // CSV'deki sütun sayısının doğru olduğundan emin olalım
+                if (columns.length < 9) return null; 
+                return { 
+                    date: columns[0] || '', 
+                    time: columns[1] || '', 
+                    description: columns[2] || 'Açıklama yok', 
+                    amount: parseFloat(columns[3]) || 0, 
+                    type: (columns[4] || 'gider').toLowerCase().trim(), 
+                    mainCategory: columns[5] || '', 
+                    subCategory: columns[6] || '', 
+                    microCategory: columns[7] || '', 
+                    risk: columns[8] || '' 
+                };
+            }).filter(Boolean) // Hatalı satırları (null) filtrele
+              .sort((a, b) => {
+                // Tarih formatını (DD.MM.YYYY) ayrıştırıp Date nesnesine çeviriyoruz
+                const dateA = new Date(a.date.split('.').reverse().join('-') + 'T' + a.time);
+                const dateB = new Date(b.date.split('.').reverse().join('-') + 'T' + b.time);
+                // Geçersiz tarihleri sona atmak için kontrol
+                if (isNaN(dateA.getTime())) return 1;
+                if (isNaN(dateB.getTime())) return -1;
+                return dateB - dateA;
+              });
+        }
+
+        function updateUI(transactions) {
+            const today = new Date();
+            const pastTransactions = allTransactions.filter(t => {
+                const transactionDate = new Date(t.date.split('.').reverse().join('-'));
+                return !isNaN(transactionDate.getTime()) && transactionDate <= today;
+            });
+            updateSummaryCards(pastTransactions);
+            createOrUpdateCharts(pastTransactions);
+            createMonthlySummaryCards(allTransactions);
+            populateTransactionTable(transactions);
+        }
+        
+        // --- FİLTRELEME İŞLEMLERİ ---
+        function populateFilters(transactions) {
+            const months = [...new Set(transactions.map(t => {
+                const dateParts = t.date.split('.');
+                if (dateParts.length !== 3) return null;
+                const [day, month, year] = dateParts;
+                const date = new Date(year, month - 1, day);
+                if (isNaN(date.getTime())) return null;
+                return `${monthNamesTR[date.getMonth()]} ${date.getFullYear()}`;
+            }).filter(Boolean))];
+
+            const types = [...new Set(transactions.map(t => t.type).filter(Boolean))];
+            const categories = [...new Set(transactions.map(t => t.mainCategory).filter(Boolean))];
+            populateSelect(elements.filters.month, months, "Tüm Aylar");
+            populateSelect(elements.filters.type, types, "Tüm Türler");
+            populateSelect(elements.filters.category, categories, "Tüm Kategoriler");
+        }
+
+        function populateSelect(selectEl, options, defaultText) {
+            selectEl.innerHTML = `<option value="all">${defaultText}</option>`;
+            options.forEach(option => { selectEl.innerHTML += `<option value="${option}">${option}</option>`; });
+        }
+
+        function applyFilters() {
+            const selectedMonth = elements.filters.month.value;
+            const selectedType = elements.filters.type.value;
+            const selectedCategory = elements.filters.category.value;
+            const filteredTransactions = allTransactions.filter(t => {
+                const dateParts = t.date.split('.');
+                if (dateParts.length !== 3) return false;
+                const [day, month, year] = dateParts;
+                const date = new Date(year, month - 1, day);
+                if (isNaN(date.getTime())) return false;
+
+                const transactionMonth = `${monthNamesTR[date.getMonth()]} ${date.getFullYear()}`;
+                const monthMatch = selectedMonth === 'all' || transactionMonth === selectedMonth;
+                const typeMatch = selectedType === 'all' || t.type === selectedType;
+                const categoryMatch = selectedCategory === 'all' || t.mainCategory === selectedCategory;
+                return monthMatch && typeMatch && categoryMatch;
+            });
+            populateTransactionTable(filteredTransactions);
+        }
+
+        // --- KART VE TABLO OLUŞTURMA ---
+        function updateSummaryCards(transactions) {
+            const income = transactions.filter(t => t.type === 'gelir').reduce((sum, t) => sum + t.amount, 0);
+            const expense = transactions.filter(t => t.type === 'gider').reduce((sum, t) => sum + t.amount, 0);
+            const savings = transactions.filter(t => t.type === 'birikim').reduce((sum, t) => sum + t.amount, 0);
+            const balance = income - expense;
+            elements.totalIncome.textContent = `${income.toFixed(2)} ₺`;
+            elements.totalExpense.textContent = `${expense.toFixed(2)} ₺`;
+            elements.totalSavings.textContent = `${savings.toFixed(2)} ₺`;
+            elements.balance.textContent = `${balance.toFixed(2)} ₺`;
+            elements.balance.classList.toggle('text-green-600', balance >= 0);
+            elements.balance.classList.toggle('text-red-600', balance < 0);
+            
+            populateIncomeBreakdown(elements.breakdowns.income, transactions.filter(t => t.type === 'gelir'));
+            populateNestedBreakdown(elements.breakdowns.expense, transactions.filter(t => t.type === 'gider'), 'Gider');
+            populateNestedBreakdown(elements.breakdowns.savings, transactions.filter(t => t.type === 'birikim'), 'Birikim');
+        }
+
+        function populateIncomeBreakdown(ulElement, transactions) {
+            const breakdownData = transactions.reduce((acc, t) => { const key = t.description || 'Diğer Gelir'; acc[key] = (acc[key] || 0) + t.amount; return acc; }, {});
+            ulElement.innerHTML = Object.entries(breakdownData).sort(([, a], [, b]) => b - a).map(([key, value]) => `<li class="flex justify-between p-2"><span>${key}</span> <span class="font-medium">${value.toFixed(2)}₺</span></li>`).join('') || '<li>Veri Yok</li>';
+        }
+
+        function populateNestedBreakdown(ulElement, transactions, type) {
+            const breakdownData = transactions.reduce((acc, t) => {
+                const mainKey = t.mainCategory || `Diğer ${type}`;
+                const subKey = t.subCategory || 'Diğer';
+                if (!acc[mainKey]) acc[mainKey] = { total: 0, subCategories: {} };
+                acc[mainKey].total += t.amount;
+                acc[mainKey].subCategories[subKey] = (acc[mainKey].subCategories[subKey] || 0) + t.amount;
+                return acc;
+            }, {});
+            ulElement.innerHTML = Object.entries(breakdownData).sort(([, a], [, b]) => b.total - a.total).map(([mainKey, data]) => {
+                const subCategoryHtml = Object.entries(data.subCategories).sort(([, a], [, b]) => b - a).map(([subKey, value]) => `<li class="flex justify-between text-xs py-1 px-2"><span>${subKey}</span> <span class="font-normal">${value.toFixed(2)}₺</span></li>`).join('');
+                return `<li><div class="main-category-toggle flex items-center justify-between p-2 hover:bg-gray-100 rounded-md cursor-pointer"><span class="font-medium">${mainKey}</span><div class="flex items-center"><span class="font-bold mr-2">${data.total.toFixed(2)}₺</span><i class="fas fa-chevron-down text-xs text-gray-400"></i></div></div><ul class="sub-breakdown pl-4 border-l-2 border-gray-200 ml-2">${subCategoryHtml}</ul></li>`;
+            }).join('') || '<li>Veri Yok</li>';
+        }
+        
+        function createMonthlySummaryCards(transactions) {
+            if (!transactions || transactions.length === 0) {
+                elements.monthlySummaries.innerHTML = '<p class="text-center text-gray-500 col-span-full">Görüntülenecek işlem verisi bulunamadı.</p>';
+                return;
+            }
+            
+            const monthlyData = transactions.reduce((acc, t) => {
+                const dateParts = t.date.split('.');
+                if (dateParts.length !== 3) return acc;
+                const [day, month, year] = dateParts;
+                const date = new Date(year, month - 1, day);
+                if (isNaN(date.getTime())) return acc;
+
+                const monthYear = `${monthNamesTR[date.getMonth()]} ${date.getFullYear()}`;
+                if (!acc[monthYear]) acc[monthYear] = { income: 0, expense: 0, savings: 0, incomeItems: {}, expenseItems: {} };
+                
+                if (t.type === 'gelir') { acc[monthYear].income += t.amount; acc[monthYear].incomeItems[t.description || 'Diğer Gelir'] = (acc[monthYear].incomeItems[t.description || 'Diğer Gelir'] || 0) + t.amount; } 
+                else if (t.type === 'gider') { acc[monthYear].expense += t.amount; acc[monthYear].expenseItems[t.mainCategory || 'Diğer Gider'] = (acc[monthYear].expenseItems[t.mainCategory || 'Diğer Gider'] || 0) + t.amount; } 
+                else if (t.type === 'birikim') { acc[monthYear].savings += t.amount; }
+                return acc;
+            }, {});
+
+            const validTransactions = transactions.filter(t => !isNaN(new Date(t.date.split('.').reverse().join('-')).getTime()));
+            const firstTransactionDate = validTransactions.length > 0 ? new Date(validTransactions[validTransactions.length - 1].date.split('.').reverse().join('-')) : new Date();
+            const lastDebtDate = new Date(Math.max(...fixedDebts.map(d => d.endDate)));
+            let currentMonth = new Date(firstTransactionDate.getFullYear(), firstTransactionDate.getMonth(), 1);
+
+            while(currentMonth <= lastDebtDate) {
+                const monthYear = `${monthNamesTR[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+                if (!monthlyData[monthYear]) { monthlyData[monthYear] = { income: 0, expense: 0, savings: 0, incomeItems: {}, expenseItems: {} }; }
+                currentMonth.setMonth(currentMonth.getMonth() + 1);
+            }
+
+            elements.monthlySummaries.innerHTML = '';
+            const sortedMonthlyData = Object.entries(monthlyData).sort((a,b) => new Date(a[0].split(' ')[1], monthNamesTR.indexOf(a[0].split(' ')[0])) - new Date(b[0].split(' ')[1], monthNamesTR.indexOf(b[0].split(' ')[0])));
+            
+            sortedMonthlyData.forEach(([month, data]) => {
+                const [monthName, year] = month.split(' ');
+                const monthDate = new Date(year, monthNamesTR.indexOf(monthName));
+
+                let pendingDebtsTotal = 0;
+                let pendingDebtsHtml = '';
+                
+                fixedDebts.forEach(debt => {
+                    const debtStartDate = debt.startDate || new Date(2000, 0, 1);
+                    if (monthDate >= debtStartDate && monthDate <= debt.endDate) {
+                        let payment = (debt.firstPayment && debt.startDate && debt.startDate.getFullYear() === monthDate.getFullYear() && debt.startDate.getMonth() === monthDate.getMonth()) 
+                                    ? debt.firstPayment 
+                                    : debt.payment;
+                        pendingDebtsTotal += payment;
+                        pendingDebtsHtml += `<li class="flex justify-between"><span>${debt.name}</span> <span>-${payment.toFixed(2)}₺</span></li>`;
+                    }
+                });
+                
+                const netFlow = data.income - data.expense;
+                const incomeBreakdown = Object.entries(data.incomeItems).map(([key, value]) => `<li class="flex justify-between"><span>${key}</span> <span>+${value.toFixed(2)}₺</span></li>`).join('');
+                const expenseBreakdown = Object.entries(data.expenseItems).map(([key, value]) => `<li class="flex justify-between"><span>${key}</span> <span>-${value.toFixed(2)}₺</span></li>`).join('');
+                
+                const showPendingDebts = !(monthName === 'Temmuz' && year === '2025');
+
+                const card = `
+                <div class="card bg-white p-5 rounded-xl shadow-md fade-in flex flex-col">
+                    <h4 class="font-bold text-lg mb-3">${month}</h4>
+                    <div class="space-y-1 text-sm flex-grow">
+                        <div class="monthly-details-toggle flex justify-between items-center font-semibold text-green-600 cursor-pointer p-1 rounded hover:bg-gray-100"><span>Gelir Toplamı: +${data.income.toFixed(2)} ₺</span><i class="fas fa-chevron-down text-xs"></i></div>
+                        <ul class="monthly-details-breakdown text-xs text-gray-500 pl-4 border-l-2 border-green-200 ml-2">${incomeBreakdown || '<li>Gerçekleşen gelir yok</li>'}</ul>
+                        
+                        <div class="monthly-details-toggle flex justify-between items-center font-semibold text-red-600 cursor-pointer p-1 rounded hover:bg-gray-100 mt-2"><span>Gerçekleşen Gider: -${data.expense.toFixed(2)} ₺</span><i class="fas fa-chevron-down text-xs"></i></div>
+                        <ul class="monthly-details-breakdown text-xs text-gray-500 pl-4 border-l-2 border-red-200 ml-2">${expenseBreakdown || '<li>Gerçekleşen gider yok</li>'}</ul>
+                        
+                        ${showPendingDebts && pendingDebtsTotal > 0 ? `
+                        <div class="monthly-details-toggle flex justify-between items-center font-semibold text-yellow-600 cursor-pointer p-1 rounded hover:bg-gray-100 mt-2"><span>Bekleyen Ödemeler: -${pendingDebtsTotal.toFixed(2)} ₺</span><i class="fas fa-chevron-down text-xs"></i></div>
+                        <ul class="monthly-details-breakdown text-xs text-gray-500 pl-4 border-l-2 border-yellow-200 ml-2">${pendingDebtsHtml}</ul>` : ''}
+                        
+                        <div class="font-semibold text-indigo-600 mt-2">Birikim: ${data.savings.toFixed(2)} ₺</div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="flex justify-between items-center mt-auto">
+                        <span class="font-bold">Net Nakit Akışı</span>
+                        <span class="font-extrabold ${netFlow >= 0 ? 'text-blue-600' : 'text-orange-600'}">${netFlow.toFixed(2)} ₺</span>
+                    </div>
+                </div>`;
+                elements.monthlySummaries.insertAdjacentHTML('beforeend', card);
+            });
+        }
+
+        function createOrUpdateCharts(transactions) {
+            const expenseData = transactions.filter(t => t.type === 'gider').reduce((acc, t) => { const cat = t.mainCategory || 'Diğer'; acc[cat] = (acc[cat] || 0) + t.amount; return acc; }, {});
+            const savingsData = transactions.filter(t => t.type === 'birikim').reduce((acc, t) => { const cat = t.mainCategory || 'Diğer'; acc[cat] = (acc[cat] || 0) + t.amount; return acc; }, {});
+            const chartColors = ['#4f46e5', '#ec4899', '#22c55e', '#f97316', '#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#6b7280'];
+            if (charts.expense) charts.expense.destroy();
+            charts.expense = new Chart(chartContexts.expense, { type: 'doughnut', data: { labels: Object.keys(expenseData), datasets: [{ data: Object.values(expenseData), backgroundColor: chartColors, borderColor: '#fff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+            if (charts.savings) charts.savings.destroy();
+            charts.savings = new Chart(chartContexts.savings, { type: 'bar', data: { labels: Object.keys(savingsData), datasets: [{ label: 'Birikim Tutarı', data: Object.values(savingsData), backgroundColor: chartColors }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } } });
+        }
+
+        function populateTransactionTable(transactions) {
+            elements.transactionList.innerHTML = '';
+            if (transactions.length === 0) { elements.transactionList.innerHTML = `<tr><td colspan="6" class="text-center p-6 font-medium">Seçili filtrelere uygun işlem bulunamadı.</td></tr>`; elements.transactionFooter.innerHTML = ''; return; }
+            transactions.forEach(t => { const categories = [t.mainCategory, t.subCategory, t.microCategory].filter(Boolean).join(' > '); const row = `<tr class="border-b border-gray-200 hover:bg-gray-50"><td class="p-3 text-sm text-gray-600">${t.date}<br>${t.time}</td><td class="p-3 font-medium">${t.description}</td><td class="p-3 font-bold text-right ${t.type === 'gelir' ? 'text-green-600' : 'text-red-600'}">${t.type === 'gelir' ? '+' : '-'}${t.amount.toFixed(2)} ₺</td><td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded-full capitalize ${t.type === 'gelir' ? 'bg-green-100 text-green-800' : (t.type === 'gider' ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800')}">${t.type}</span></td><td class="p-3 text-sm text-gray-600">${categories || '-'}</td><td class="p-3 text-sm text-gray-600">${t.risk || '-'}</td></tr>`; elements.transactionList.insertAdjacentHTML('beforeend', row); });
+            updateTableFooter(transactions);
+        }
+
+        function updateTableFooter(transactions) {
+            const income = transactions.filter(t => t.type === 'gelir').reduce((sum, t) => sum + t.amount, 0);
+            const expense = transactions.filter(t => t.type === 'gider').reduce((sum, t) => sum + t.amount, 0);
+            const savings = transactions.filter(t => t.type === 'birikim').reduce((sum, t) => sum + t.amount, 0);
+            const netFlow = income - expense;
+            const footerRow = `<tr class="border-t-2 border-gray-300"><td class="p-3 text-right font-extrabold" colspan="2">FİLTRE TOPLAMLARI:</td><td class="p-3 text-right font-extrabold ${netFlow >= 0 ? 'text-blue-600' : 'text-orange-600'}">${netFlow.toFixed(2)} ₺</td><td class="p-3" colspan="3"><div class="flex justify-around text-sm"><span class="text-green-600">Gelir: ${income.toFixed(2)} ₺</span><span class="text-red-600">Gider: ${expense.toFixed(2)} ₺</span><span class="text-indigo-600">Birikim: ${savings.toFixed(2)} ₺</span></div></td></tr>`;
+            elements.transactionFooter.innerHTML = footerRow;
+        }
+
+        // --- OLAY DİNLEYİCİLERİ ---
+        function setupEventListeners() {
+            elements.toggleDetailsBtn.addEventListener('click', () => { const isHidden = elements.detailsContainer.classList.toggle('hidden'); elements.toggleDetailsBtn.innerHTML = isHidden ? '<i class="fas fa-list-alt mr-2"></i>Tüm İşlem Geçmişini Göster' : '<i class="fas fa-eye-slash mr-2"></i>İşlem Geçmişini Gizle'; });
+            Object.values(elements.filters).forEach(select => select.addEventListener('change', applyFilters));
+            document.querySelector('.container').addEventListener('click', (event) => {
+                const mainToggle = event.target.closest('.details-toggle');
+                if (mainToggle) { mainToggle.classList.toggle('open'); const breakdown = mainToggle.parentElement.nextElementSibling; breakdown.classList.toggle('open'); return; }
+                const subToggle = event.target.closest('.main-category-toggle');
+                if (subToggle) { subToggle.classList.toggle('open'); const subBreakdown = subToggle.nextElementSibling; subBreakdown.classList.toggle('open'); return; }
+                const monthlyToggle = event.target.closest('.monthly-details-toggle');
+                if (monthlyToggle) { monthlyToggle.classList.toggle('open'); const breakdown = monthlyToggle.nextElementSibling; breakdown.classList.toggle('open'); }
+            });
+        }
+        
+        // Sayfa yüklendiğinde paneli başlat
+        document.addEventListener('DOMContentLoaded', initializeDashboard);
+    </script>
+</body>
+</html>
